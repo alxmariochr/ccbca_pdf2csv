@@ -1,35 +1,38 @@
-# Byte-compiled / optimized / DLL files
+# Python cache and bytecode
 __pycache__/
 *.py[cod]
 *.pyo
+*.pyd
 
-# Virtual environments
+# Virtual environment
 .venv/
 env/
 venv/
 
 # macOS system files
 .DS_Store
+.AppleDouble
+.LSOverride
 
-# Editor settings
+# VS Code settings
 .vscode/
-.idea/
 
-# Jupyter Notebook checkpoints
-.ipynb_checkpoints/
-
-# Log and data files
-*.log
-*.csv
-*.sqlite3
-
-# Python distribution / packaging
+# py2app build folders
 build/
 dist/
 *.egg-info/
-.eggs/
 
-# VS Code Python debug files
-*.env
-*.env.*
-.envrc
+# Streamlit cache and logs
+.streamlit/
+*.log
+
+# DMG or ZIP packages
+*.dmg
+*.zip
+
+# Output files
+transaction.csv
+
+# Icon and temporary assets
+*.icns
+*.iconset/
