@@ -1,17 +1,18 @@
 import pdfplumber
 import pandas as pd
-import numpy as np
 import re
 import warnings
 
 warnings.filterwarnings("ignore")
 
 def parse(file_path, output="transaction.csv"):
-    all_data = []
+    rows = []
+    current_txn = None
     date_pattern = r'^\d{2}-[A-Z]{3}'  # e.g. 01-APR
+    fx_pattern = r'^\(USD .* X .*?\)'  # foreign exchange line
 
     with pdfplumber.open(file_path) as pdf:
-        for i, page in enumerate(pdf.pages):
+        for page in pdf.pages:
             text = page.extract_text()
             if not text:
                 continue
@@ -19,42 +20,49 @@ def parse(file_path, output="transaction.csv"):
             lines = text.split('\n')
             for line in lines:
                 line = line.strip()
-                # Skip empty or non-date lines
-                if not re.match(date_pattern, line):
+
+                # If line is a foreign exchange breakdown, merge to description
+                if re.match(fx_pattern, line):
+                    if current_txn:
+                        current_txn["description"] += f" {line}"
                     continue
 
-                parts = line.split()
-                try:
-                    date = parts[0]
-                    # Handle CR (credit) transactions
-                    if parts[-1] == 'CR':
-                        flag = 'CR'
-                        amount_str = parts[-2]
-                        description = " ".join(parts[2:-2])
-                    else:
-                        flag = 'DR'
-                        amount_str = parts[-1]
-                        description = " ".join(parts[2:-1])
+                # If line matches a transaction (starts with date)
+                if re.match(date_pattern, line):
+                    parts = line.split()
 
-                    # Clean and convert amount
-                    amount = float(amount_str.replace(".", "").replace(",", "."))
+                    try:
+                        date = parts[0]
+                        if parts[-1] == 'CR':
+                            flag = 'CR'
+                            amount_str = parts[-2]
+                            description = " ".join(parts[2:-2])
+                        else:
+                            flag = 'DR'
+                            amount_str = parts[-1]
+                            description = " ".join(parts[2:-1])
 
-                    if flag == "CR":
-                        amount *= -1
+                        amount = float(amount_str.replace(".", "").replace(",", "."))
 
-                    all_data.append([date, description, amount, flag])
-                except Exception:
-                    continue  # Skip malformed lines
+                        current_txn = {
+                            "date": date,
+                            "description": description,
+                            "debit": amount if flag == "DR" else 0,
+                            "credit": amount if flag == "CR" else 0
+                        }
+                        rows.append(current_txn)
 
-    # Build DataFrame
-    df = pd.DataFrame(all_data, columns=['date', 'description', 'amount', 'flag'])
+                    except Exception:
+                        continue  # Skip malformed lines
 
-    # Filter out payment lines or noise
+    df = pd.DataFrame(rows)
+
+    # Filter out invalid descriptions
     df = df[df['description'].str.len() > 4]
     df = df[~df['description'].str.contains("PEMBAYARAN - MBCA", na=False)]
 
     df.to_csv(output, index=False)
-    print(f"✅ Data extracted and saved to: {output}")
+    print(f"✅ Data saved to {output}")
     return df
 
 if __name__ == "__main__":
